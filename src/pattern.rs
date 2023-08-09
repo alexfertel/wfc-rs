@@ -2,6 +2,7 @@ use std::{fmt::Debug, ops::Index};
 
 use image::Rgb;
 
+use crate::direction::Direction;
 use crate::Image;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -87,7 +88,7 @@ impl<'p> Pattern<'p> {
             Direction::Up => {
                 for x in 0..self.size {
                     for y in 0..self.size - 1 {
-                        let pixel = self[(x as u32, y as u32)];
+                        let pixel = self[(x, y)];
                         pixels.push(pixel.into());
                     }
                 }
@@ -95,7 +96,7 @@ impl<'p> Pattern<'p> {
             Direction::Right => {
                 for x in 1..self.size {
                     for y in 0..self.size {
-                        let pixel = self[(x as u32, y as u32)];
+                        let pixel = self[(x, y)];
                         pixels.push(pixel.into());
                     }
                 }
@@ -103,7 +104,7 @@ impl<'p> Pattern<'p> {
             Direction::Down => {
                 for x in 0..self.size {
                     for y in 1..self.size {
-                        let pixel = self[(x as u32, y as u32)];
+                        let pixel = self[(x, y)];
                         pixels.push(pixel.into());
                     }
                 }
@@ -111,7 +112,7 @@ impl<'p> Pattern<'p> {
             Direction::Left => {
                 for x in 0..self.size - 1 {
                     for y in 0..self.size {
-                        let pixel = self[(x as u32, y as u32)];
+                        let pixel = self[(x, y)];
                         pixels.push(pixel.into());
                     }
                 }
@@ -119,6 +120,13 @@ impl<'p> Pattern<'p> {
         }
 
         pixels
+    }
+
+    pub fn check_overlap(&self, p2: &Pattern, direction: &Direction) -> bool {
+        let side1 = self.get_side(direction);
+        let side2 = p2.get_side(&direction.opposite());
+
+        side1 == side2
     }
 }
 
@@ -137,66 +145,5 @@ impl Index<(usize, usize)> for Pattern<'_> {
     fn index(&self, index: (usize, usize)) -> &Self::Output {
         let i = index.0 * self.size + index.1;
         &self.pixels[i]
-    }
-}
-
-impl Index<(u8, u8)> for Pattern<'_> {
-    type Output = Color;
-
-    fn index(&self, index: (u8, u8)) -> &Self::Output {
-        let i = index.0 as usize * self.size + index.1 as usize;
-        &self.pixels[i]
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum Direction {
-    Up,
-    Down,
-    Right,
-    Left,
-}
-
-impl Direction {
-    pub fn all() -> [Direction; 4] {
-        [
-            Direction::Up,
-            Direction::Down,
-            Direction::Right,
-            Direction::Left,
-        ]
-    }
-
-    pub fn opposite(&self) -> Direction {
-        match *self {
-            Direction::Up => Direction::Down,
-            Direction::Down => Direction::Up,
-            Direction::Right => Direction::Left,
-            Direction::Left => Direction::Right,
-        }
-    }
-}
-
-impl From<(i32, i32)> for Direction {
-    fn from(value: (i32, i32)) -> Self {
-        match value {
-            (0, -1) => Direction::Up,
-            (1, 0) => Direction::Right,
-            (0, 1) => Direction::Down,
-            (-1, 0) => Direction::Left,
-            _ => panic!("Invalid direction"),
-        }
-    }
-}
-
-impl From<(i8, i8)> for Direction {
-    fn from(value: (i8, i8)) -> Self {
-        match value {
-            (0, -1) => Direction::Up,
-            (1, 0) => Direction::Right,
-            (0, 1) => Direction::Down,
-            (-1, 0) => Direction::Left,
-            _ => panic!("Invalid direction"),
-        }
     }
 }

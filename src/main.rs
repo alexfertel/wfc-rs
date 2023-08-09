@@ -4,6 +4,7 @@ use clap::Parser;
 use image::ImageResult;
 use itertools::iproduct;
 
+mod direction;
 mod pattern;
 
 type Image = image::ImageBuffer<image::Rgb<u8>, Vec<u8>>;
@@ -41,17 +42,14 @@ fn get_patterns(image: &Image, size: usize) -> HashSet<pattern::Pattern> {
 
 fn build_constraints(patterns: &HashSet<pattern::Pattern>) -> Vec<bool> {
     let mut constraints = Vec::with_capacity(patterns.len() * patterns.len() * 4);
-    for (p1, p2, d) in iproduct!(patterns.iter(), patterns.iter(), pattern::Direction::all()) {
-        let allowed = check_overlap(p1, p2, d);
+    for (p1, p2, d) in iproduct!(
+        patterns.iter(),
+        patterns.iter(),
+        direction::Direction::all()
+    ) {
+        let allowed = p1.check_overlap(p2, &d);
         constraints.push(allowed);
     }
 
     constraints
-}
-
-fn check_overlap(p1: &pattern::Pattern, p2: &pattern::Pattern, d: pattern::Direction) -> bool {
-    let p1_side = p1.get_side(&d);
-    let p2_side = p2.get_side(&d.opposite());
-
-    p1_side == p2_side
 }
