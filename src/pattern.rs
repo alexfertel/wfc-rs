@@ -1,3 +1,5 @@
+use std::cell::Cell;
+use std::hash::{Hash, Hasher};
 use std::{fmt::Debug, ops::Index};
 
 use image::Rgb;
@@ -30,32 +32,22 @@ impl From<Rgb<u8>> for Color {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone)]
 pub struct Pattern<'p> {
-    image: &'p Image,
+    /// The input texture.
+    texture: &'p Image,
+    /// The pattern ID.
+    id: usize,
 
     pub pixels: Vec<Color>,
     pub size: usize,
 }
 
-impl Debug for Pattern<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for (i, pixel) in self.pixels.iter().enumerate() {
-            write!(f, "{:?}", pixel)?;
-
-            if i % self.size == 3 {
-                write!(f, "\n")?;
-            }
-        }
-
-        Ok(())
-    }
-}
-
 impl<'p> Pattern<'p> {
-    pub fn new(image: &'p Image, size: usize) -> Self {
+    pub fn new(id: usize, size: usize, texture: &'p Image) -> Self {
         Pattern {
-            image,
+            id,
+            texture,
             pixels: Vec::with_capacity(size),
             size,
         }
@@ -65,16 +57,16 @@ impl<'p> Pattern<'p> {
         for dx in 0..self.size {
             for dy in 0..self.size {
                 let mut x = pos.0.saturating_add(dx as u32);
-                if x >= self.image.width() {
+                if x >= self.texture.width() {
                     x = 0;
                 }
 
                 let mut y = pos.1.saturating_add(dy as u32);
-                if y >= self.image.height() {
+                if y >= self.texture.height() {
                     y = 0;
                 }
 
-                let pixel = self.image[(x, y)];
+                let pixel = self.texture[(x, y)];
                 self.pixels.push(pixel.into());
             }
         }
@@ -127,6 +119,34 @@ impl<'p> Pattern<'p> {
         let side2 = p2.get_side(&direction.opposite());
 
         side1 == side2
+    }
+}
+
+impl Hash for Pattern<'_> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.pixels.hash(state);
+    }
+}
+
+impl PartialEq for Pattern<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        self.pixels == other.pixels
+    }
+}
+
+impl Eq for Pattern<'_> {}
+
+impl Debug for Pattern<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for (i, pixel) in self.pixels.iter().enumerate() {
+            write!(f, "{:?}", pixel)?;
+
+            if i % self.size == 3 {
+                write!(f, "\n")?;
+            }
+        }
+
+        Ok(())
     }
 }
 
