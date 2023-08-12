@@ -1,4 +1,3 @@
-use std::cell::Cell;
 use std::hash::{Hash, Hasher};
 use std::{fmt::Debug, ops::Index};
 
@@ -24,6 +23,10 @@ impl Color {
     pub fn new(r: u8, g: u8, b: u8) -> Self {
         Color { r, g, b }
     }
+
+    pub fn to_slice(&self) -> [u8; 3] {
+        [self.r, self.g, self.b]
+    }
 }
 
 impl From<Rgb<u8>> for Color {
@@ -37,8 +40,7 @@ pub struct Pattern<'p> {
     /// The input texture.
     texture: &'p Image,
     /// The pattern ID.
-    id: usize,
-
+    pub id: usize,
     pub pixels: Vec<Color>,
     pub size: usize,
 }
@@ -53,6 +55,11 @@ impl<'p> Pattern<'p> {
         }
     }
 
+    /// Creates a pattern from a position in the texture.
+    ///
+    /// This means taking a square of pixels from the texture, starting at the
+    /// given position, and adding them to the pattern. The starting position
+    /// is the top-left corner of the square.
     pub fn from_pos(mut self, pos: (u32, u32)) -> Self {
         for dx in 0..self.size {
             for dy in 0..self.size {
@@ -74,6 +81,13 @@ impl<'p> Pattern<'p> {
         self
     }
 
+    /// Returns the pixels of the pattern that constitute the side in the given
+    /// direction.
+    ///
+    /// This means that the pixels returned are the ones that are on the side
+    /// of the pattern that is facing the given direction. For example, if the
+    /// direction is `Up`, then the pixels returned are all the pixels except
+    /// the bottom row.
     pub fn get_side(&self, direction: &Direction) -> Vec<Color> {
         let mut pixels = Vec::with_capacity(self.size * (self.size - 1));
         match direction {
@@ -114,7 +128,11 @@ impl<'p> Pattern<'p> {
         pixels
     }
 
-    pub fn check_overlap(&self, p2: &Pattern, direction: &Direction) -> bool {
+    /// Checks whether the pattern overlaps with the given pattern in the given
+    /// direction.
+    ///
+    /// This answers whether a given pattern can be put next to another pattern.
+    pub fn overlaps(&self, p2: &Pattern, direction: &Direction) -> bool {
         let side1 = self.get_side(direction);
         let side2 = p2.get_side(&direction.opposite());
 

@@ -4,9 +4,9 @@ use clap::Parser;
 use image::ImageResult;
 use itertools::iproduct;
 
-mod ctable;
 mod direction;
 mod pattern;
+mod table;
 mod wfc;
 
 type Image = image::ImageBuffer<image::Rgb<u8>, Vec<u8>>;
@@ -24,7 +24,11 @@ fn main() -> ImageResult<()> {
     let args = Cli::parse();
     let image = image::open(&args.texture)?.to_rgb8();
     let pattern_set = get_patterns(&image, args.size);
-    let constraints = build_constraints(pattern_set.iter().collect());
+    let patterns = pattern_set.iter().collect();
+    let ctable = build_constraints(&patterns);
+    let solver = wfc::Wfc::new(patterns);
+
+    solver.generate(ctable, 10, 10);
 
     Ok(())
 }
@@ -43,14 +47,16 @@ fn get_patterns(image: &Image, size: usize) -> HashSet<pattern::Pattern> {
     patterns
 }
 
-fn build_constraints<'p>(patterns: Vec<&'p pattern::Pattern>) -> ctable::ConstraintsTable<'p> {
+fn build_constraints<'p>(patterns: &Vec<&'p pattern::Pattern>) -> table::Table<[bool; 4]> {
     let directions = direction::Direction::all();
-    let mut table = Vec::with_capacity(patterns.len() * patterns.len() * directions.len());
-    for (p1, p2, d) in iproduct!(patterns.iter(), patterns.iter(), directions) {
-        let allowed = p1.check_overlap(&p2, &d);
-        table.push(allowed);
+    let mut ctable = Vec::with_capacity(patterns.len() * patterns.len() * directions.len());
+    for (p1, p2) in iproduct!(patterns.iter(), patterns.iter()) {
+        let mut row = [false; 4];
+        for (i, d) in directions.iter().enumerate() {
+            row[i] = p1.overlaps(p2, d);
+        }
+        ctable.push(row);
     }
 
-    let ctable = ctable::ConstraintsTable::new(table, patterns);
-    ctable
+    table::Table::new(ctable, patterns.len())
 }
