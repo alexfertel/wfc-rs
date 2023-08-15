@@ -119,17 +119,17 @@ impl<'p> WfcI<'p> {
             let (x, y) = self.etable.idx_to_pos(idx);
 
             // We get the neighbors of the current pattern.
-            let neighbors = self.etable.get_neighbors((x, y));
+            let mut neighbors = self.etable.get_neighbors((x, y));
 
             // We iterate over the neighbors.
-            for (possible_patterns, direction) in neighbors {
+            for (possible_patterns, direction) in &mut neighbors {
                 possible_patterns.retain(|p| {
                     // We check if `p` is compatible with the observed pattern
                     // in direction `direction`.
                     let constraints = self.ctable[(pattern.id, p.id)];
 
                     // We check if the constraints are satisfied.
-                    constraints[Into::<usize>::into(direction)]
+                    constraints[usize::from(*direction)]
                 });
 
                 // If there are no possible patterns after propagation,
@@ -137,12 +137,6 @@ impl<'p> WfcI<'p> {
                 if possible_patterns.is_empty() {
                     panic!("Contradiction");
                 }
-
-                // TODO: Figure out borrowing here.
-                // let (nx, ny) =
-                //     direction.add_pos((x.try_into().unwrap(), y.try_into().unwrap()));
-                // let n = self.etable[(nx as usize, ny as usize)].clone();
-                // assert_eq!(possible_patterns, n);
 
                 // If there is only one possible pattern, we propagate it.
                 // TODO: Check that we only need to propagate when 1 is left and

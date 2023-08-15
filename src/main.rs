@@ -39,7 +39,7 @@ fn get_patterns(image: &Image, size: usize) -> HashSet<pattern::Pattern> {
     for x in 0..image.width() {
         for y in 0..image.width() {
             let id = patterns.len();
-            let pattern = pattern::Pattern::new(id, size, image).from_pos((x, y));
+            let pattern = pattern::Pattern::new(id, size, image, (x, y));
             patterns.insert(pattern);
         }
     }

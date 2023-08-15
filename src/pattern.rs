@@ -46,13 +46,16 @@ pub struct Pattern<'p> {
 }
 
 impl<'p> Pattern<'p> {
-    pub fn new(id: usize, size: usize, texture: &'p Image) -> Self {
+    pub fn new(id: usize, size: usize, texture: &'p Image, pos: (u32, u32)) -> Self {
+        let pixels = Vec::with_capacity(size * size);
+
         Pattern {
             id,
             texture,
-            pixels: Vec::with_capacity(size),
+            pixels,
             size,
         }
+        .from_pos(pos)
     }
 
     /// Creates a pattern from a position in the texture.
@@ -60,7 +63,7 @@ impl<'p> Pattern<'p> {
     /// This means taking a square of pixels from the texture, starting at the
     /// given position, and adding them to the pattern. The starting position
     /// is the top-left corner of the square.
-    pub fn from_pos(mut self, pos: (u32, u32)) -> Self {
+    fn from_pos(mut self, pos: (u32, u32)) -> Self {
         for dx in 0..self.size {
             for dy in 0..self.size {
                 let mut x = pos.0.saturating_add(dx as u32);
@@ -183,5 +186,35 @@ impl Index<(usize, usize)> for Pattern<'_> {
     fn index(&self, index: (usize, usize)) -> &Self::Output {
         let i = index.0 * self.size + index.1;
         &self.pixels[i]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use image::{Rgb, RgbImage};
+
+    #[test]
+    fn pattern_creation() {
+        let mut texture = RgbImage::new(2, 2);
+
+        for x in 0..2 {
+            for y in 0..2 {
+                texture.put_pixel(x, y, Rgb([0, 0, 0]));
+            }
+        }
+        let pattern = Pattern::new(0, 2, &texture, (0, 0));
+
+        assert_eq!(pattern.pixels.len(), 4);
+
+        assert_eq!(
+            pattern.pixels,
+            vec![
+                Color::new(0, 0, 0),
+                Color::new(0, 0, 0),
+                Color::new(0, 0, 0),
+                Color::new(0, 0, 0)
+            ]
+        );
     }
 }

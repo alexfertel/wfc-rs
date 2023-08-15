@@ -81,3 +81,55 @@ impl From<Direction> for usize {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn opposite() {
+        assert_eq!(Direction::Up.opposite(), Direction::Down);
+        assert_eq!(Direction::Down.opposite(), Direction::Up);
+        assert_eq!(Direction::Right.opposite(), Direction::Left);
+        assert_eq!(Direction::Left.opposite(), Direction::Right);
+    }
+
+    #[test]
+    fn add_to_pos() {
+        assert_eq!(Direction::Up.add_pos((0, 0)), (0, -1));
+        assert_eq!(Direction::Right.add_pos((0, 0)), (1, 0));
+        assert_eq!(Direction::Down.add_pos((0, 0)), (0, 1));
+        assert_eq!(Direction::Left.add_pos((0, 0)), (-1, 0));
+    }
+
+    #[test]
+    fn conversions() {
+        assert_eq!(Direction::from((0, -1)), Direction::Up);
+        assert_eq!(Direction::from((1, 0)), Direction::Right);
+        assert_eq!(Direction::from((0, 1)), Direction::Down);
+        assert_eq!(Direction::from((-1, 0)), Direction::Left);
+
+        assert_eq!(Direction::from(0), Direction::Up);
+        assert_eq!(Direction::from(1), Direction::Right);
+        assert_eq!(Direction::from(2), Direction::Down);
+        assert_eq!(Direction::from(3), Direction::Left);
+
+        assert_eq!(usize::from(Direction::Up), 0);
+        assert_eq!(usize::from(Direction::Right), 1);
+        assert_eq!(usize::from(Direction::Down), 2);
+        assert_eq!(usize::from(Direction::Left), 3);
+    }
+
+    #[test]
+    fn all() {
+        assert_eq!(
+            Direction::all(),
+            [
+                Direction::Up,
+                Direction::Down,
+                Direction::Right,
+                Direction::Left
+            ]
+        );
+    }
+}
