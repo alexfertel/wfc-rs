@@ -1,8 +1,9 @@
-use std::{collections::HashSet, path::PathBuf};
+use std::path::PathBuf;
 
 use clap::Parser;
 use image::ImageResult;
-use itertools::iproduct;
+use pattern::get_patterns;
+use wfc::build_constraints;
 
 mod direction;
 mod pattern;
@@ -31,32 +32,4 @@ fn main() -> ImageResult<()> {
     solver.generate(ctable, 10, 10);
 
     Ok(())
-}
-
-fn get_patterns(image: &Image, size: usize) -> HashSet<pattern::Pattern> {
-    let mut patterns = HashSet::with_capacity(size * size);
-
-    for x in 0..image.width() {
-        for y in 0..image.width() {
-            let id = patterns.len();
-            let pattern = pattern::Pattern::new(id, size, image, (x, y));
-            patterns.insert(pattern);
-        }
-    }
-
-    patterns
-}
-
-fn build_constraints<'p>(patterns: &Vec<&'p pattern::Pattern>) -> table::Table<[bool; 4]> {
-    let directions = direction::Direction::all();
-    let mut ctable = Vec::with_capacity(patterns.len() * patterns.len() * directions.len());
-    for (p1, p2) in iproduct!(patterns.iter(), patterns.iter()) {
-        let mut row = [false; 4];
-        for (i, d) in directions.iter().enumerate() {
-            row[i] = p1.overlaps(p2, d);
-        }
-        ctable.push(row);
-    }
-
-    table::Table::new(ctable, patterns.len())
 }

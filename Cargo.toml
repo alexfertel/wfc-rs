@@ -10,3 +10,6 @@ clap = { version = "4.3.21", features = ["derive"] }
 image = "0.24.6"
 itertools = "0.11.0"
 rand = "0.8.5"
+
+[dev-dependencies]
+pretty_assertions = { version= "1.4.0" }

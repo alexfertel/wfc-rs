@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
 use std::{fmt::Debug, ops::Index};
 
@@ -66,15 +67,8 @@ impl<'p> Pattern<'p> {
     fn from_pos(mut self, pos: (u32, u32)) -> Self {
         for dx in 0..self.size {
             for dy in 0..self.size {
-                let mut x = pos.0.saturating_add(dx as u32);
-                if x >= self.texture.width() {
-                    x = 0;
-                }
-
-                let mut y = pos.1.saturating_add(dy as u32);
-                if y >= self.texture.height() {
-                    y = 0;
-                }
+                let x = pos.0.wrapping_add(dx as u32) % self.texture.width();
+                let y = pos.1.wrapping_add(dy as u32) % self.texture.height();
 
                 let pixel = self.texture[(x, y)];
                 self.pixels.push(pixel.into());
@@ -162,7 +156,7 @@ impl Debug for Pattern<'_> {
         for (i, pixel) in self.pixels.iter().enumerate() {
             write!(f, "{:?}", pixel)?;
 
-            if i % self.size == 3 {
+            if i % self.size == 0 && i != 0 {
                 write!(f, "\n")?;
             }
         }
@@ -189,32 +183,198 @@ impl Index<(usize, usize)> for Pattern<'_> {
     }
 }
 
+pub fn get_patterns(image: &Image, size: usize) -> HashSet<Pattern> {
+    let mut patterns = HashSet::with_capacity(size * size);
+
+    for x in 0..image.width() {
+        for y in 0..image.height() {
+            let id = patterns.len();
+            let pattern = Pattern::new(id, size, image, (x, y));
+            patterns.insert(pattern);
+        }
+    }
+
+    patterns
+}
+
 #[cfg(test)]
 mod tests {
-    use super::*;
     use image::{Rgb, RgbImage};
+    use pretty_assertions::assert_eq;
+
+    use crate::{direction::Direction, Image};
+
+    use super::{Color, Pattern};
+
+    fn c(id: u8) -> Color {
+        Color::new(id, 0, 0)
+    }
+
+    fn p<'p>(id: usize, size: usize, texture: &'p Image, pos: (u32, u32)) -> Pattern<'p> {
+        Pattern::new(id, size, texture, pos)
+    }
+
+    fn img(size: u32) -> RgbImage {
+        let mut texture = RgbImage::new(size, size);
+        let mut count = 0;
+        for x in 0..size {
+            for y in 0..size {
+                texture.put_pixel(x, y, Rgb([count, 0, 0]));
+                count += 1;
+            }
+        }
+
+        texture
+    }
 
     #[test]
-    fn pattern_creation() {
-        let mut texture = RgbImage::new(2, 2);
+    fn new() {
+        // [0, 2]
+        // [1, 3]
+        let texture = img(2);
+        let pattern = p(0, 2, &texture, (0, 0));
+        assert_eq!(pattern.pixels.len(), 4);
+        assert_eq!(pattern.pixels, vec![c(0), c(1), c(2), c(3)]);
 
-        for x in 0..2 {
-            for y in 0..2 {
+        let pattern = p(1, 2, &texture, (0, 1));
+        assert_eq!(pattern.pixels.len(), 4);
+        assert_eq!(pattern.pixels, vec![c(1), c(0), c(3), c(2)]);
+
+        // [0, 4, 8,  12]
+        // [1, 5, 9,  13]
+        // [2, 6, 10, 14]
+        // [3, 7, 11, 15]
+        let texture = img(4);
+        let pattern = p(0, 2, &texture, (0, 0));
+        assert_eq!(pattern.pixels.len(), 4);
+        assert_eq!(pattern.pixels, vec![c(0), c(1), c(4), c(5)]);
+
+        let pattern = p(1, 2, &texture, (0, 1));
+        assert_eq!(pattern.pixels.len(), 4);
+        assert_eq!(pattern.pixels, vec![c(1), c(2), c(5), c(6)]);
+
+        let pattern = p(2, 3, &texture, (3, 3));
+        assert_eq!(pattern.pixels.len(), 9);
+        assert_eq!(
+            pattern.pixels,
+            vec![c(15), c(12), c(13), c(3), c(0), c(1), c(7), c(4), c(5)]
+        );
+
+        let pattern = p(3, 1, &texture, (0, 0));
+        assert_eq!(pattern.pixels.len(), 1);
+        assert_eq!(pattern.pixels, vec![c(0)]);
+
+        let pattern = p(4, 2, &texture, (3, 1));
+        assert_eq!(pattern.pixels.len(), 4);
+        assert_eq!(pattern.pixels, vec![c(13), c(14), c(1), c(2)]);
+    }
+
+    #[test]
+    fn get_side() {
+        // [0, 4, 8,  12]
+        // [1, 5, 9,  13]
+        // [2, 6, 10, 14]
+        // [3, 7, 11, 15]
+        let texture = img(4);
+        let pattern = p(0, 2, &texture, (0, 0));
+        assert_eq!(pattern.pixels, vec![c(0), c(1), c(4), c(5)]);
+        assert_eq!(pattern.get_side(&Direction::Up), vec![c(0), c(4)]);
+        assert_eq!(pattern.get_side(&Direction::Right), vec![c(4), c(5)]);
+        assert_eq!(pattern.get_side(&Direction::Down), vec![c(1), c(5)]);
+        assert_eq!(pattern.get_side(&Direction::Left), vec![c(0), c(1)]);
+
+        let pattern = p(1, 3, &texture, (3, 3));
+        assert_eq!(
+            pattern.pixels,
+            vec![c(15), c(12), c(13), c(3), c(0), c(1), c(7), c(4), c(5)]
+        );
+        assert_eq!(
+            pattern.get_side(&Direction::Up),
+            vec![c(15), c(12), c(3), c(0), c(7), c(4)]
+        );
+        assert_eq!(
+            pattern.get_side(&Direction::Right),
+            vec![c(3), c(0), c(1), c(7), c(4), c(5)]
+        );
+        assert_eq!(
+            pattern.get_side(&Direction::Down),
+            vec![c(12), c(13), c(0), c(1), c(4), c(5)]
+        );
+        assert_eq!(
+            pattern.get_side(&Direction::Left),
+            vec![c(15), c(12), c(13), c(3), c(0), c(1)]
+        );
+    }
+
+    #[test]
+    fn overlaps() {
+        // [0, 1, 2, 3]
+        // [1, 2, 3, 4]
+        // [2, 3, 4, 5]
+        // [3, 4, 5, 6]
+        let mut texture = RgbImage::new(4, 4);
+        for x in 0..4 {
+            for y in 0..4 {
+                texture.put_pixel(x, y, Rgb([(x + y) as u8, 0, 0]));
+            }
+        }
+
+        let p1 = p(0, 2, &texture, (0, 0));
+        let p2 = p(1, 2, &texture, (1, 0));
+        assert!(p1.overlaps(&p2, &Direction::Right));
+        assert!(p1.overlaps(&p2, &Direction::Down));
+        assert!(!p1.overlaps(&p2, &Direction::Left));
+        assert!(!p1.overlaps(&p2, &Direction::Up));
+
+        let p1 = p(2, 2, &texture, (0, 1));
+        let p2 = p(3, 2, &texture, (2, 0));
+        assert!(p1.overlaps(&p2, &Direction::Right));
+        assert!(p1.overlaps(&p2, &Direction::Down));
+        assert!(!p1.overlaps(&p2, &Direction::Left));
+        assert!(!p1.overlaps(&p2, &Direction::Up));
+
+        let p1 = p(4, 2, &texture, (1, 2));
+        let p2 = p(5, 2, &texture, (2, 0));
+        assert!(p1.overlaps(&p2, &Direction::Up));
+        assert!(p1.overlaps(&p2, &Direction::Left));
+        assert!(!p1.overlaps(&p2, &Direction::Down));
+        assert!(!p1.overlaps(&p2, &Direction::Right));
+    }
+
+    #[test]
+    fn get_patterns() {
+        // [0, 3, 6]
+        // [1, 4, 7]
+        // [2, 5, 8]
+        let texture = img(3);
+        let patterns = super::get_patterns(&texture, 2);
+        assert_eq!(patterns.len(), 9);
+        let expected = vec![
+            p(0, 2, &texture, (0, 0)),
+            p(1, 2, &texture, (1, 0)),
+            p(2, 2, &texture, (2, 0)),
+            p(3, 2, &texture, (0, 1)),
+            p(4, 2, &texture, (1, 1)),
+            p(5, 2, &texture, (2, 1)),
+            p(6, 2, &texture, (0, 2)),
+            p(7, 2, &texture, (1, 2)),
+            p(8, 2, &texture, (2, 2)),
+        ];
+        for pattern in expected {
+            assert!(patterns.contains(&pattern));
+        }
+
+        // [0, 0, 0]
+        // [0, 0, 0]
+        // [0, 0, 0]
+        let mut texture = RgbImage::new(3, 3);
+        for x in 0..3 {
+            for y in 0..3 {
                 texture.put_pixel(x, y, Rgb([0, 0, 0]));
             }
         }
-        let pattern = Pattern::new(0, 2, &texture, (0, 0));
-
-        assert_eq!(pattern.pixels.len(), 4);
-
-        assert_eq!(
-            pattern.pixels,
-            vec![
-                Color::new(0, 0, 0),
-                Color::new(0, 0, 0),
-                Color::new(0, 0, 0),
-                Color::new(0, 0, 0)
-            ]
-        );
+        let patterns = super::get_patterns(&texture, 2);
+        assert_eq!(patterns.len(), 1);
+        assert!(patterns.contains(&p(0, 2, &texture, (0, 0))));
     }
 }

@@ -1,10 +1,26 @@
 use std::collections::HashSet;
 
 use image;
+use itertools::iproduct;
 use rand::seq::IteratorRandom;
 
+use crate::direction;
 use crate::pattern;
 use crate::table;
+
+pub fn build_constraints<'p>(patterns: &Vec<&'p pattern::Pattern>) -> table::Table<[bool; 4]> {
+    let directions = direction::Direction::all();
+    let mut ctable = Vec::with_capacity(patterns.len() * patterns.len() * directions.len());
+    for (p1, p2) in iproduct!(patterns.iter(), patterns.iter()) {
+        let mut row = [false; 4];
+        for (i, d) in directions.iter().enumerate() {
+            row[i] = p1.overlaps(p2, d);
+        }
+        ctable.push(row);
+    }
+
+    table::Table::new(ctable, patterns.len())
+}
 
 /// Wave Function Collapse.
 ///
@@ -110,7 +126,7 @@ impl<'p> WfcI<'p> {
         // We also keep a HashSet of the indices that we already have on the stack.
         let mut stack_set = HashSet::with_capacity(self.etable.len());
 
-        // We start by pushing the observed pattern on the stack.
+        // Start by pushing the observed pattern on the stack.
         stack.push((idx, observed));
         stack_set.insert(idx);
 
@@ -118,31 +134,34 @@ impl<'p> WfcI<'p> {
             let (idx, pattern) = current;
             let (x, y) = self.etable.idx_to_pos(idx);
 
-            // We get the neighbors of the current pattern.
-            let mut neighbors = self.etable.get_neighbors((x, y));
+            // Get the neighbors of the current pattern.
+            let neighbors = self.etable.get_neighbors((x, y));
 
-            // We iterate over the neighbors.
-            for (possible_patterns, direction) in &mut neighbors {
-                possible_patterns.retain(|p| {
-                    // We check if `p` is compatible with the observed pattern
-                    // in direction `direction`.
-                    let constraints = self.ctable[(pattern.id, p.id)];
+            // Iterate over the neighbors.
+            for (possible_patterns, direction) in neighbors {
+                let remaining = possible_patterns
+                    .into_iter()
+                    .filter(|&&p| {
+                        // Check if `p` is compatible with the observed pattern
+                        // in direction `direction`.
+                        let constraints = self.ctable[(pattern.id, p.id)];
 
-                    // We check if the constraints are satisfied.
-                    constraints[usize::from(*direction)]
-                });
+                        // Check if the constraints are satisfied.
+                        constraints[usize::from(direction)]
+                    })
+                    .collect::<Vec<_>>();
 
                 // If there are no possible patterns after propagation,
                 // we have a contradiction.
-                if possible_patterns.is_empty() {
+                if remaining.is_empty() {
                     panic!("Contradiction");
                 }
 
                 // If there is only one possible pattern, we propagate it.
                 // TODO: Check that we only need to propagate when 1 is left and
                 // not when there is a change possibilities (the more general case).
-                if possible_patterns.len() == 1 {
-                    let collapsed = possible_patterns[0];
+                if remaining.len() == 1 {
+                    let collapsed = remaining[0];
 
                     // If the neighbor is not already on the stack, we push it.
                     if !stack_set.contains(&collapsed.id) {
