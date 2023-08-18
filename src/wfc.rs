@@ -1,25 +1,31 @@
+use std::collections::HashMap;
 use std::collections::HashSet;
 
 use image;
 use itertools::iproduct;
+use itertools::Itertools;
 use rand::seq::IteratorRandom;
 
 use crate::direction;
+use crate::direction::Direction;
 use crate::pattern;
 use crate::table;
 
-pub fn build_constraints<'p>(patterns: &Vec<&'p pattern::Pattern>) -> table::Table<[bool; 4]> {
+type CTable = HashMap<(usize, usize), [bool; 4]>;
+type ETable<'p> = table::Table<Vec<&'p pattern::Pattern<'p>>>;
+
+pub fn build_constraints<'p>(patterns: &Vec<&'p pattern::Pattern>) -> CTable {
     let directions = direction::Direction::all();
-    let mut ctable = Vec::with_capacity(patterns.len() * patterns.len() * directions.len());
+    let mut ctable = HashMap::with_capacity(patterns.len() * patterns.len());
     for (p1, p2) in iproduct!(patterns.iter(), patterns.iter()) {
         let mut row = [false; 4];
-        for (i, d) in directions.iter().enumerate() {
-            row[i] = p1.overlaps(p2, d);
+        for d in directions {
+            row[usize::from(d)] = p1.overlaps(p2, &d);
         }
-        ctable.push(row);
+        ctable.insert((p1.id, p2.id), row);
     }
 
-    table::Table::new(ctable, patterns.len())
+    ctable
 }
 
 /// Wave Function Collapse.
@@ -36,7 +42,7 @@ impl<'p> Wfc<'p> {
     }
 
     /// Implements the CSP solver.
-    pub fn generate(&self, ctable: table::Table<[bool; 4]>, width: u32, height: u32) {
+    pub fn generate(&self, ctable: CTable, width: u32, height: u32) {
         let buffer = image::ImageBuffer::new(width, height);
 
         let mut entropy = Vec::with_capacity(width as usize * height as usize);
@@ -52,15 +58,16 @@ impl<'p> Wfc<'p> {
 
         assert!(solver.etable.iter().all(|x| x.len() == 1));
 
-        for i in 0..width {
-            for j in 0..height {
+        for i in 0..height {
+            for j in 0..width {
                 let idx = i * width + j;
                 let pattern = solver.etable[idx as usize][0];
                 let color = pattern.pixels[0];
                 solver.buffer.put_pixel(i, j, image::Rgb(color.to_slice()));
 
-                println!("{:?}", color.to_slice());
+                print!("{:?}", color.to_slice());
             }
+            print!("\n");
         }
     }
 }
@@ -74,20 +81,20 @@ pub struct WfcI<'p> {
     ///
     /// This is a `NxNx4` matrix, where `N` is the number of patterns.
     /// A member of the matrix is true if `p1` overlaps `p2` in the given direction.
-    ctable: table::Table<[bool; 4]>,
+    ctable: CTable,
     /// The entropy table.
     ///
     /// This is a `NxMxP` matrix, where `N` & `M` are the width & the height
     /// of the output image, and `P` is the number of patterns.
-    etable: table::Table<Vec<&'p pattern::Pattern<'p>>>,
+    etable: ETable<'p>,
     /// The output image.
     buffer: image::ImageBuffer<image::Rgb<u8>, Vec<u8>>,
 }
 
 impl<'p> WfcI<'p> {
     fn new(
-        ctable: table::Table<[bool; 4]>,
-        etable: table::Table<Vec<&'p pattern::Pattern<'p>>>,
+        ctable: CTable,
+        etable: ETable<'p>,
         buffer: image::ImageBuffer<image::Rgb<u8>, Vec<u8>>,
     ) -> Self {
         WfcI {
@@ -101,15 +108,18 @@ impl<'p> WfcI<'p> {
         let min = self
             .etable
             .iter()
-            .filter(|x| x.len() > 1)
             .map(|x| x.len())
-            .min()
-            .unwrap();
-        let least_entropy = self.etable.iter().filter(|x| x.len() == min);
+            .filter(|&x| x > 1)
+            .min()?;
+
+        let least_entropy = self
+            .etable
+            .iter()
+            .enumerate()
+            .filter(|(_, x)| x.len() == min);
 
         let mut rng = rand::thread_rng();
-        // It is fine to unwrap because we know that the iterator is not empty.
-        let (idx, slot) = least_entropy.enumerate().choose(&mut rng)?;
+        let (idx, slot) = least_entropy.choose(&mut rng)?;
         let observed = slot.iter().choose(&mut rng)?;
 
         self.etable[idx] = vec![*observed];
@@ -117,8 +127,7 @@ impl<'p> WfcI<'p> {
         Some(idx)
     }
 
-    fn propagate(&mut self, idx: usize) {
-        let observed = self.etable[idx][0];
+    fn propagate(&mut self, start_idx: usize) {
         // The upper bound on the stack size is the size of the
         // output image, since at most we can have all the pixels
         // yet to be propagated to on the stack.
@@ -126,50 +135,96 @@ impl<'p> WfcI<'p> {
         // We also keep a HashSet of the indices that we already have on the stack.
         let mut stack_set = HashSet::with_capacity(self.etable.len());
 
-        // Start by pushing the observed pattern on the stack.
-        stack.push((idx, observed));
-        stack_set.insert(idx);
+        // Start by pushing the observed pattern onto the stack.
+        stack.push(start_idx);
+        stack_set.insert(start_idx);
 
-        while let Some(current) = stack.pop() {
-            let (idx, pattern) = current;
-            let (x, y) = self.etable.idx_to_pos(idx);
+        while let Some(current_idx) = stack.pop() {
+            stack_set.remove(&current_idx);
+            let (x, y) = self.etable.idx_to_pos(current_idx);
 
             // Get the neighbors of the current pattern.
-            let neighbors = self.etable.get_neighbors((x, y));
 
-            // Iterate over the neighbors.
-            for (possible_patterns, direction) in neighbors {
-                let remaining = possible_patterns
-                    .into_iter()
-                    .filter(|&&p| {
-                        // Check if `p` is compatible with the observed pattern
-                        // in direction `direction`.
-                        let constraints = self.ctable[(pattern.id, p.id)];
+            for (nx, ny) in self.etable.get_neighbors((x, y)) {
+                let neighbor_possibilities = self.etable.get((nx, ny));
 
-                        // Check if the constraints are satisfied.
-                        constraints[usize::from(direction)]
-                    })
-                    .collect::<Vec<_>>();
+                let mut remaining_set = HashSet::with_capacity(neighbor_possibilities.len());
+                let direction = Direction::from_neighbors((x, y), (nx, ny));
+                for possibility in self.etable.get((x, y)) {
+                    let remaining = neighbor_possibilities
+                        .iter()
+                        .filter(|&p| {
+                            // Check if `p` is compatible with the observed pattern
+                            // in direction `direction`. It's okay to unwrap since we
+                            // have to assume the table is populated correctly.
+                            let constraints = self.ctable.get(&(possibility.id, p.id)).unwrap();
+
+                            constraints[usize::from(direction)] // Check if the constraints are satisfied.
+                        })
+                        .collect_vec();
+
+                    // Add the possible slots that this possibility enables.
+                    remaining_set.extend(remaining);
+                }
 
                 // If there are no possible patterns after propagation,
                 // we have a contradiction.
-                if remaining.is_empty() {
+                if remaining_set.is_empty() {
                     panic!("Contradiction");
                 }
 
-                // If there is only one possible pattern, we propagate it.
-                // TODO: Check that we only need to propagate when 1 is left and
-                // not when there is a change possibilities (the more general case).
-                if remaining.len() == 1 {
-                    let collapsed = remaining[0];
+                // If there was a change in possibilities we propagate that
+                // position as well.
+                //
+                // This is needed because if we remove possibilities from a
+                // slot S we might end up in a situation where a neighbor of
+                // S gets observed with a pattern that has no overlap with
+                // any of the possible patterns in S.
+                if neighbor_possibilities.len() != remaining_set.len() {
+                    let idx = nx * self.etable.width() + ny;
 
                     // If the neighbor is not already on the stack, we push it.
-                    if !stack_set.contains(&collapsed.id) {
-                        stack.push((collapsed.id, collapsed));
-                        stack_set.insert(collapsed.id);
+                    if stack_set.insert(idx) {
+                        stack.push(idx)
                     }
                 }
+
+                // Collapse the neighboring slot.
+                self.etable[(nx, ny)] = remaining_set.into_iter().collect();
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    use image::{Rgb, RgbImage};
+    use itertools::Itertools;
+
+    use crate::test_utils::p;
+
+    #[test]
+    fn build_constraints() {
+        // [0, 1, 2]
+        // [1, 2, 3]
+        // [2, 3, 4]
+        let mut texture = RgbImage::new(4, 4);
+        for x in 0..4 {
+            for y in 0..4 {
+                texture.put_pixel(x, y, Rgb([(x + y) as u8, 0, 0]));
+            }
+        }
+
+        let patterns = vec![p(0, 2, &texture, (0, 0)), p(1, 2, &texture, (1, 0))];
+        let expected = HashMap::from([
+            ((0, 0), [false, false, false, false]),
+            ((0, 1), [false, true, true, false]),
+            ((1, 0), [true, false, false, true]),
+            ((1, 1), [false, false, false, false]),
+        ]);
+        let actual = super::build_constraints(&patterns.iter().collect_vec());
+        assert_eq!(expected, actual);
     }
 }

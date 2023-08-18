@@ -8,6 +8,7 @@ use wfc::build_constraints;
 mod direction;
 mod pattern;
 mod table;
+mod test_utils;
 mod wfc;
 
 type Image = image::ImageBuffer<image::Rgb<u8>, Vec<u8>>;

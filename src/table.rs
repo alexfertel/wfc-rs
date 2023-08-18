@@ -5,7 +5,7 @@ use std::{
 
 use crate::direction::Direction;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Table<T> {
     collection: Vec<T>,
     width: usize,
@@ -28,11 +28,15 @@ impl<T> Table<T> {
         self.collection.iter()
     }
 
-    pub fn idx_to_pos(&self, idx: usize) -> (usize, usize) {
-        (idx / self.height(), idx % self.width())
+    pub fn get(&self, (x, y): (usize, usize)) -> &T {
+        self.collection.index(x * self.height() + y)
     }
 
-    pub fn get_neighbors(&self, (x, y): (usize, usize)) -> Vec<(&T, Direction)> {
+    pub fn idx_to_pos(&self, idx: usize) -> (usize, usize) {
+        (idx / self.width(), idx % self.width())
+    }
+
+    pub fn get_neighbors(&self, (x, y): (usize, usize)) -> Vec<(usize, usize)> {
         let mut neighbors = Vec::with_capacity(4);
 
         for d in Direction::all() {
@@ -41,7 +45,7 @@ impl<T> Table<T> {
                 continue;
             }
 
-            neighbors.push((&self[(dx as usize, dy as usize)], d));
+            neighbors.push((dx as usize, dy as usize));
         }
 
         neighbors
@@ -84,8 +88,6 @@ impl<T> IndexMut<(usize, usize)> for Table<T> {
 mod tests {
     use itertools::Itertools;
 
-    use crate::direction::Direction;
-
     use super::Table;
 
     #[test]
@@ -124,23 +126,23 @@ mod tests {
         // [2, 5, 8]
         let table = Table::new((0..9).collect_vec(), 3);
         let neighbors = table.get_neighbors((0, 0));
-        assert!(neighbors.contains(&(&3, Direction::Right)));
-        assert!(neighbors.contains(&(&1, Direction::Down)));
+        assert!(neighbors.contains(&(0, 1)));
+        assert!(neighbors.contains(&(1, 0)));
 
         let neighbors = table.get_neighbors((1, 1));
         dbg!(&neighbors);
-        assert!(neighbors.contains(&(&1, Direction::Left)));
-        assert!(neighbors.contains(&(&7, Direction::Right)));
-        assert!(neighbors.contains(&(&3, Direction::Up)));
-        assert!(neighbors.contains(&(&5, Direction::Down)));
+        assert!(neighbors.contains(&(0, 1)));
+        assert!(neighbors.contains(&(1, 0)));
+        assert!(neighbors.contains(&(2, 1)));
+        assert!(neighbors.contains(&(1, 2)));
 
         let neighbors = table.get_neighbors((2, 2));
-        assert!(neighbors.contains(&(&5, Direction::Left)));
-        assert!(neighbors.contains(&(&7, Direction::Up)));
+        assert!(neighbors.contains(&(1, 2)));
+        assert!(neighbors.contains(&(2, 1)));
 
         let neighbors = table.get_neighbors((2, 1));
-        assert!(neighbors.contains(&(&4, Direction::Left)));
-        assert!(neighbors.contains(&(&6, Direction::Up)));
-        assert!(neighbors.contains(&(&8, Direction::Down)));
+        assert!(neighbors.contains(&(1, 1)));
+        assert!(neighbors.contains(&(2, 0)));
+        assert!(neighbors.contains(&(2, 2)));
     }
 }

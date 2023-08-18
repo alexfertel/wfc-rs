@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::fmt::Display;
 use std::hash::{Hash, Hasher};
 use std::{fmt::Debug, ops::Index};
 
@@ -153,13 +154,35 @@ impl Eq for Pattern<'_> {}
 
 impl Debug for Pattern<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for (i, pixel) in self.pixels.iter().enumerate() {
-            write!(f, "{:?}", pixel)?;
-
+        write!(f, "[")?;
+        for i in 0..self.pixels.len() {
             if i % self.size == 0 && i != 0 {
                 write!(f, "\n")?;
             }
+
+            let idx = (i % self.size) * self.size + i / self.size;
+            let pixel = self.pixels[idx];
+            write!(f, "{:?}", pixel)?;
         }
+        write!(f, "]")?;
+
+        Ok(())
+    }
+}
+
+impl Display for Pattern<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "[")?;
+        for i in 0..self.pixels.len() {
+            if i % self.size == 0 && i != 0 {
+                write!(f, "\n")?;
+            }
+
+            let idx = (i % self.size) * self.size + i / self.size;
+            let pixel = self.pixels[idx];
+            write!(f, "{:?}", pixel)?;
+        }
+        write!(f, "]")?;
 
         Ok(())
     }
@@ -186,8 +209,8 @@ impl Index<(usize, usize)> for Pattern<'_> {
 pub fn get_patterns(image: &Image, size: usize) -> HashSet<Pattern> {
     let mut patterns = HashSet::with_capacity(size * size);
 
-    for x in 0..image.width() {
-        for y in 0..image.height() {
+    for x in 0..image.height() {
+        for y in 0..image.width() {
             let id = patterns.len();
             let pattern = Pattern::new(id, size, image, (x, y));
             patterns.insert(pattern);
@@ -202,30 +225,10 @@ mod tests {
     use image::{Rgb, RgbImage};
     use pretty_assertions::assert_eq;
 
-    use crate::{direction::Direction, Image};
-
-    use super::{Color, Pattern};
-
-    fn c(id: u8) -> Color {
-        Color::new(id, 0, 0)
-    }
-
-    fn p<'p>(id: usize, size: usize, texture: &'p Image, pos: (u32, u32)) -> Pattern<'p> {
-        Pattern::new(id, size, texture, pos)
-    }
-
-    fn img(size: u32) -> RgbImage {
-        let mut texture = RgbImage::new(size, size);
-        let mut count = 0;
-        for x in 0..size {
-            for y in 0..size {
-                texture.put_pixel(x, y, Rgb([count, 0, 0]));
-                count += 1;
-            }
-        }
-
-        texture
-    }
+    use crate::{
+        direction::Direction,
+        test_utils::{c, img, p},
+    };
 
     #[test]
     fn new() {
