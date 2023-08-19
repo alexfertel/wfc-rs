@@ -10,23 +10,10 @@ use crate::direction;
 use crate::direction::Direction;
 use crate::pattern;
 use crate::table;
+use crate::Image;
 
 type CTable = HashMap<(usize, usize), [bool; 4]>;
 type ETable<'p> = table::Table<Vec<&'p pattern::Pattern<'p>>>;
-
-pub fn build_constraints<'p>(patterns: &Vec<&'p pattern::Pattern>) -> CTable {
-    let directions = direction::Direction::all();
-    let mut ctable = HashMap::with_capacity(patterns.len() * patterns.len());
-    for (p1, p2) in iproduct!(patterns.iter(), patterns.iter()) {
-        let mut row = [false; 4];
-        for d in directions {
-            row[usize::from(d)] = p1.overlaps(p2, &d);
-        }
-        ctable.insert((p1.id, p2.id), row);
-    }
-
-    ctable
-}
 
 /// Wave Function Collapse.
 ///
@@ -34,15 +21,30 @@ pub fn build_constraints<'p>(patterns: &Vec<&'p pattern::Pattern>) -> CTable {
 pub struct Wfc<'p> {
     /// The patterns.
     patterns: Vec<&'p pattern::Pattern<'p>>,
+    /// The constraints table.
+    ///
+    /// This is a `NxNx4` matrix, where `N` is the number of patterns.
+    /// A member of the matrix is true if `p1` overlaps `p2` in the given direction.
+    ctable: CTable,
 }
 
 impl<'p> Wfc<'p> {
     pub fn new(patterns: Vec<&'p pattern::Pattern<'p>>) -> Self {
-        Wfc { patterns }
+        let directions = direction::Direction::all();
+        let mut ctable = HashMap::with_capacity(patterns.len() * patterns.len());
+        for (p1, p2) in iproduct!(patterns.iter(), patterns.iter()) {
+            let mut row = [false; 4];
+            for d in directions {
+                row[usize::from(d)] = p1.overlaps(p2, &d);
+            }
+            ctable.insert((p1.id, p2.id), row);
+        }
+
+        Wfc { patterns, ctable }
     }
 
     /// Implements the CSP solver.
-    pub fn generate(&self, ctable: CTable, width: u32, height: u32) {
+    pub fn generate(&self, width: u32, height: u32) -> Image {
         let buffer = image::ImageBuffer::new(width, height);
 
         let mut entropy = Vec::with_capacity(width as usize * height as usize);
@@ -50,7 +52,7 @@ impl<'p> Wfc<'p> {
             entropy.push(self.patterns.clone());
         }
         let etable = table::Table::new(entropy, width as usize);
-        let mut solver = WfcI::new(ctable, etable, buffer);
+        let mut solver = WfcI::new(&self.ctable, etable, buffer);
 
         while let Some(observed_idx) = solver.observe() {
             solver.propagate(observed_idx);
@@ -64,11 +66,10 @@ impl<'p> Wfc<'p> {
                 let pattern = solver.etable[idx as usize][0];
                 let color = pattern.pixels[0];
                 solver.buffer.put_pixel(i, j, image::Rgb(color.to_slice()));
-
-                print!("{:?}", color.to_slice());
             }
-            print!("\n");
         }
+
+        solver.buffer
     }
 }
 
@@ -81,7 +82,7 @@ pub struct WfcI<'p> {
     ///
     /// This is a `NxNx4` matrix, where `N` is the number of patterns.
     /// A member of the matrix is true if `p1` overlaps `p2` in the given direction.
-    ctable: CTable,
+    ctable: &'p CTable,
     /// The entropy table.
     ///
     /// This is a `NxMxP` matrix, where `N` & `M` are the width & the height
@@ -93,7 +94,7 @@ pub struct WfcI<'p> {
 
 impl<'p> WfcI<'p> {
     fn new(
-        ctable: CTable,
+        ctable: &'p CTable,
         etable: ETable<'p>,
         buffer: image::ImageBuffer<image::Rgb<u8>, Vec<u8>>,
     ) -> Self {
@@ -224,7 +225,7 @@ mod tests {
             ((1, 0), [true, false, false, true]),
             ((1, 1), [false, false, false, false]),
         ]);
-        let actual = super::build_constraints(&patterns.iter().collect_vec());
+        let actual = super::Wfc::new(patterns.iter().collect_vec()).ctable;
         assert_eq!(expected, actual);
     }
 }
