@@ -1,5 +1,5 @@
-use std::collections::HashMap;
-use std::collections::HashSet;
+use rustc_hash::FxHashMap as HashMap;
+use rustc_hash::FxHashSet as HashSet;
 
 use image;
 use itertools::iproduct;
@@ -31,7 +31,7 @@ pub struct Wfc<'p> {
 impl<'p> Wfc<'p> {
     pub fn new(patterns: Vec<&'p pattern::Pattern<'p>>) -> Self {
         let directions = direction::Direction::all();
-        let mut ctable = HashMap::with_capacity(patterns.len() * patterns.len());
+        let mut ctable = HashMap::default();
         for (p1, p2) in iproduct!(patterns.iter(), patterns.iter()) {
             let mut row = [false; 4];
             for d in directions {
@@ -134,7 +134,7 @@ impl<'p> WfcI<'p> {
         // yet to be propagated to on the stack.
         let mut stack = Vec::with_capacity(self.etable.len());
         // We also keep a HashSet of the indices that we already have on the stack.
-        let mut stack_set = HashSet::with_capacity(self.etable.len());
+        let mut stack_set = HashSet::default();
 
         // Start by pushing the observed pattern onto the stack.
         stack.push(start_idx);
@@ -149,7 +149,7 @@ impl<'p> WfcI<'p> {
             for (nx, ny) in self.etable.get_neighbors((x, y)) {
                 let neighbor_possibilities = self.etable.get((nx, ny));
 
-                let mut remaining_set = HashSet::with_capacity(neighbor_possibilities.len());
+                let mut remaining_set = HashSet::default();
                 let direction = Direction::from_neighbors((x, y), (nx, ny));
                 for possibility in self.etable.get((x, y)) {
                     let remaining = neighbor_possibilities
@@ -199,7 +199,7 @@ impl<'p> WfcI<'p> {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
+    use rustc_hash::FxHashMap as HashMap;
 
     use image::{Rgb, RgbImage};
     use itertools::Itertools;
@@ -219,12 +219,12 @@ mod tests {
         }
 
         let patterns = vec![p(0, 2, &texture, (0, 0)), p(1, 2, &texture, (1, 0))];
-        let expected = HashMap::from([
-            ((0, 0), [false, false, false, false]),
-            ((0, 1), [false, true, true, false]),
-            ((1, 0), [true, false, false, true]),
-            ((1, 1), [false, false, false, false]),
-        ]);
+
+        let mut expected = HashMap::default();
+        expected.insert((0, 0), [false, false, false, false]);
+        expected.insert((0, 1), [false, true, true, false]);
+        expected.insert((0, 0), [true, false, false, true]);
+        expected.insert((0, 0), [false, false, false, false]);
         let actual = super::Wfc::new(patterns.iter().collect_vec()).ctable;
         assert_eq!(expected, actual);
     }
