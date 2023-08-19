@@ -342,6 +342,20 @@ mod tests {
         assert!(p1.overlaps(&p2, &Direction::Left));
         assert!(!p1.overlaps(&p2, &Direction::Down));
         assert!(!p1.overlaps(&p2, &Direction::Right));
+
+        let p1 = p(6, 3, &texture, (0, 0));
+        let p2 = p(7, 3, &texture, (1, 0));
+        assert!(p1.overlaps(&p2, &Direction::Right));
+        assert!(p1.overlaps(&p2, &Direction::Down));
+        assert!(!p1.overlaps(&p2, &Direction::Left));
+        assert!(!p1.overlaps(&p2, &Direction::Up));
+
+        let p1 = p(8, 3, &texture, (0, 0));
+        let p2 = p(9, 3, &texture, (1, 0));
+        assert!(p1.overlaps(&p2, &Direction::Right));
+        assert!(p1.overlaps(&p2, &Direction::Down));
+        assert!(!p1.overlaps(&p2, &Direction::Left));
+        assert!(!p1.overlaps(&p2, &Direction::Up));
     }
 
     #[test]
