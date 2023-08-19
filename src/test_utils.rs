@@ -16,9 +16,9 @@ pub fn p<'p>(id: usize, size: usize, texture: &'p Image, pos: (u32, u32)) -> Pat
 pub fn img(size: u32) -> RgbImage {
     let mut texture = RgbImage::new(size, size);
     let mut count = 0;
-    for x in 0..size {
-        for y in 0..size {
-            texture.put_pixel(x, y, Rgb([count, 0, 0]));
+    for y in 0..size {
+        for x in 0..size {
+            texture.put_pixel(y, x, Rgb([count, 0, 0]));
             count += 1;
         }
     }

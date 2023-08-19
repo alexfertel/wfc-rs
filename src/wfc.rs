@@ -223,8 +223,8 @@ mod tests {
         let mut expected = HashMap::default();
         expected.insert((0, 0), [false, false, false, false]);
         expected.insert((0, 1), [false, true, true, false]);
-        expected.insert((0, 0), [true, false, false, true]);
-        expected.insert((0, 0), [false, false, false, false]);
+        expected.insert((1, 0), [true, false, false, true]);
+        expected.insert((1, 1), [false, false, false, false]);
         let actual = super::Wfc::new(patterns.iter().collect_vec()).ctable;
         assert_eq!(expected, actual);
     }

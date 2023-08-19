@@ -68,8 +68,8 @@ impl<'p> Pattern<'p> {
     fn from_pos(mut self, pos: (u32, u32)) -> Self {
         for dx in 0..self.size {
             for dy in 0..self.size {
-                let x = pos.0.wrapping_add(dx as u32) % self.texture.width();
-                let y = pos.1.wrapping_add(dy as u32) % self.texture.height();
+                let x = pos.0.wrapping_add(dx as u32) % self.texture.height();
+                let y = pos.1.wrapping_add(dy as u32) % self.texture.width();
 
                 let pixel = self.texture[(x, y)];
                 self.pixels.push(pixel.into());
@@ -90,22 +90,14 @@ impl<'p> Pattern<'p> {
         let mut pixels = Vec::with_capacity(self.size * (self.size - 1));
         match direction {
             Direction::Up => {
-                for x in 0..self.size {
-                    for y in 0..self.size - 1 {
-                        let pixel = self[(x, y)];
-                        pixels.push(pixel.into());
-                    }
-                }
-            }
-            Direction::Right => {
-                for x in 1..self.size {
+                for x in 0..self.size - 1 {
                     for y in 0..self.size {
                         let pixel = self[(x, y)];
                         pixels.push(pixel.into());
                     }
                 }
             }
-            Direction::Down => {
+            Direction::Right => {
                 for x in 0..self.size {
                     for y in 1..self.size {
                         let pixel = self[(x, y)];
@@ -113,9 +105,17 @@ impl<'p> Pattern<'p> {
                     }
                 }
             }
-            Direction::Left => {
-                for x in 0..self.size - 1 {
+            Direction::Down => {
+                for x in 1..self.size {
                     for y in 0..self.size {
+                        let pixel = self[(x, y)];
+                        pixels.push(pixel.into());
+                    }
+                }
+            }
+            Direction::Left => {
+                for x in 0..self.size {
+                    for y in 0..self.size - 1 {
                         let pixel = self[(x, y)];
                         pixels.push(pixel.into());
                     }
@@ -232,8 +232,8 @@ mod tests {
 
     #[test]
     fn new() {
-        // [0, 2]
-        // [1, 3]
+        // [0, 1]
+        // [2, 3]
         let texture = img(2);
         let pattern = p(0, 2, &texture, (0, 0));
         assert_eq!(pattern.pixels.len(), 4);
@@ -243,10 +243,10 @@ mod tests {
         assert_eq!(pattern.pixels.len(), 4);
         assert_eq!(pattern.pixels, vec![c(1), c(0), c(3), c(2)]);
 
-        // [0, 4, 8,  12]
-        // [1, 5, 9,  13]
-        // [2, 6, 10, 14]
-        // [3, 7, 11, 15]
+        // [0, 1, 2, 3]
+        // [4, 5, 6, 7]
+        // [8, 9, 10, 11]
+        // [12, 13, 14, 15]
         let texture = img(4);
         let pattern = p(0, 2, &texture, (0, 0));
         assert_eq!(pattern.pixels.len(), 4);
@@ -274,17 +274,17 @@ mod tests {
 
     #[test]
     fn get_side() {
-        // [0, 4, 8,  12]
-        // [1, 5, 9,  13]
-        // [2, 6, 10, 14]
-        // [3, 7, 11, 15]
+        // [0, 1, 2, 3]
+        // [4, 5, 6, 7]
+        // [8, 9, 10, 11]
+        // [12, 13, 14, 15]
         let texture = img(4);
         let pattern = p(0, 2, &texture, (0, 0));
         assert_eq!(pattern.pixels, vec![c(0), c(1), c(4), c(5)]);
-        assert_eq!(pattern.get_side(&Direction::Up), vec![c(0), c(4)]);
-        assert_eq!(pattern.get_side(&Direction::Right), vec![c(4), c(5)]);
-        assert_eq!(pattern.get_side(&Direction::Down), vec![c(1), c(5)]);
-        assert_eq!(pattern.get_side(&Direction::Left), vec![c(0), c(1)]);
+        assert_eq!(pattern.get_side(&Direction::Up), vec![c(0), c(1)]);
+        assert_eq!(pattern.get_side(&Direction::Right), vec![c(1), c(5)]);
+        assert_eq!(pattern.get_side(&Direction::Down), vec![c(4), c(5)]);
+        assert_eq!(pattern.get_side(&Direction::Left), vec![c(0), c(4)]);
 
         let pattern = p(1, 3, &texture, (3, 3));
         assert_eq!(
@@ -293,19 +293,19 @@ mod tests {
         );
         assert_eq!(
             pattern.get_side(&Direction::Up),
-            vec![c(15), c(12), c(3), c(0), c(7), c(4)]
+            vec![c(15), c(12), c(13), c(3), c(0), c(1)]
         );
         assert_eq!(
             pattern.get_side(&Direction::Right),
-            vec![c(3), c(0), c(1), c(7), c(4), c(5)]
-        );
-        assert_eq!(
-            pattern.get_side(&Direction::Down),
             vec![c(12), c(13), c(0), c(1), c(4), c(5)]
         );
         assert_eq!(
+            pattern.get_side(&Direction::Down),
+            vec![c(3), c(0), c(1), c(7), c(4), c(5)]
+        );
+        assert_eq!(
             pattern.get_side(&Direction::Left),
-            vec![c(15), c(12), c(13), c(3), c(0), c(1)]
+            vec![c(15), c(12), c(3), c(0), c(7), c(4)]
         );
     }
 
