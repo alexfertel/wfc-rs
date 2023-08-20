@@ -360,9 +360,9 @@ mod tests {
 
     #[test]
     fn get_patterns() {
-        // [0, 3, 6]
-        // [1, 4, 7]
-        // [2, 5, 8]
+        // [0, 1, 2]
+        // [3, 4, 5]
+        // [6, 7, 8]
         let texture = img(3);
         let patterns = super::get_patterns(&texture, 2);
         assert_eq!(patterns.len(), 9);
@@ -393,5 +393,55 @@ mod tests {
         let patterns = super::get_patterns(&texture, 2);
         assert_eq!(patterns.len(), 1);
         assert!(patterns.contains(&p(0, 2, &texture, (0, 0))));
+
+        // [0, 1, 2]
+        // [3, 4, 5]
+        // [6, 7, 8]
+        let texture = img(3);
+        let patterns = super::get_patterns(&texture, 3);
+        assert_eq!(patterns.len(), 9);
+        let expected = vec![
+            p(0, 3, &texture, (0, 0)),
+            p(1, 3, &texture, (1, 0)),
+            p(2, 3, &texture, (2, 0)),
+            p(3, 3, &texture, (0, 1)),
+            p(4, 3, &texture, (1, 1)),
+            p(5, 3, &texture, (2, 1)),
+            p(6, 3, &texture, (0, 2)),
+            p(7, 3, &texture, (1, 2)),
+            p(8, 3, &texture, (2, 2)),
+        ];
+        for pattern in expected {
+            assert!(patterns.contains(&pattern));
+        }
+
+        // [0, 1, 2, 3]
+        // [4, 5, 6, 7]
+        // [8, 9, 10, 11]
+        // [12, 13, 14, 15]
+        let texture = img(4);
+        let patterns = super::get_patterns(&texture, 3);
+        assert_eq!(patterns.len(), 16);
+        let expected = vec![
+            p(0, 3, &texture, (0, 0)),
+            p(1, 3, &texture, (1, 0)),
+            p(2, 3, &texture, (2, 0)),
+            p(3, 3, &texture, (0, 1)),
+            p(4, 3, &texture, (1, 1)),
+            p(5, 3, &texture, (2, 1)),
+            p(6, 3, &texture, (0, 2)),
+            p(7, 3, &texture, (1, 2)),
+            p(8, 3, &texture, (2, 2)),
+            p(9, 3, &texture, (0, 3)),
+            p(10, 3, &texture, (1, 3)),
+            p(11, 3, &texture, (2, 3)),
+            p(12, 3, &texture, (3, 3)),
+            p(13, 3, &texture, (3, 2)),
+            p(14, 3, &texture, (3, 1)),
+            p(15, 3, &texture, (3, 0)),
+        ];
+        for pattern in expected {
+            assert!(patterns.contains(&pattern));
+        }
     }
 }

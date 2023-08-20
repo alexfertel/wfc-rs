@@ -227,5 +227,25 @@ mod tests {
         expected.insert((1, 1), [false, false, false, false]);
         let actual = super::Wfc::new(patterns.iter().collect_vec()).ctable;
         assert_eq!(expected, actual);
+
+        // [0, 1, 2]
+        // [1, 2, 3]
+        // [2, 3, 4]
+        let mut texture = RgbImage::new(4, 4);
+        for x in 0..4 {
+            for y in 0..4 {
+                texture.put_pixel(x, y, Rgb([(x + y) as u8, 0, 0]));
+            }
+        }
+
+        let patterns = vec![p(0, 3, &texture, (0, 0)), p(1, 3, &texture, (1, 0))];
+
+        let mut expected = HashMap::default();
+        expected.insert((0, 0), [false, false, false, false]);
+        expected.insert((0, 1), [false, true, true, false]);
+        expected.insert((1, 0), [true, false, false, true]);
+        expected.insert((1, 1), [false, false, false, false]);
+        let actual = super::Wfc::new(patterns.iter().collect_vec()).ctable;
+        assert_eq!(expected, actual);
     }
 }
