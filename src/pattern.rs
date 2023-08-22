@@ -68,8 +68,8 @@ impl<'p> Pattern<'p> {
     fn from_pos(mut self, pos: (u32, u32)) -> Self {
         for dx in 0..self.size {
             for dy in 0..self.size {
-                let x = pos.0.wrapping_add(dx as u32) % self.texture.height();
-                let y = pos.1.wrapping_add(dy as u32) % self.texture.width();
+                let x = pos.0.wrapping_add(dx as u32) % self.texture.width();
+                let y = pos.1.wrapping_add(dy as u32) % self.texture.height();
 
                 let pixel = self.texture[(x, y)];
                 self.pixels.push(pixel.into());
