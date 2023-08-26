@@ -29,5 +29,26 @@ fn size_3(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, size_2, size_3);
+fn build_constraints(c: &mut Criterion) {
+    let image = image::open("bench_data/red-maze.png").unwrap().to_rgb8();
+    let pattern_set = wfc::get_patterns(&image, 2);
+    let patterns = pattern_set.iter().collect();
+
+    let mut group = c.benchmark_group("sample-size-100");
+    group.sample_size(100);
+    group.bench_function("build-constraints-red-maze-size-2", |b| {
+        b.iter(|| wfc::Wfc::build_constraints(&patterns))
+    });
+
+    let image = image::open("bench_data/water.png").unwrap().to_rgb8();
+    let pattern_set = wfc::get_patterns(&image, 3);
+    let patterns = pattern_set.iter().collect();
+    group.bench_function("build-constraints-water-size-3", |b| {
+        b.iter(|| wfc::Wfc::build_constraints(&patterns))
+    });
+
+    group.finish();
+}
+
+criterion_group!(benches, size_2, size_3, build_constraints);
 criterion_main!(benches);
