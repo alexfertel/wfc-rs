@@ -12,7 +12,7 @@ use crate::pattern;
 use crate::table;
 use crate::Image;
 
-type CTable = HashMap<(usize, usize), [bool; 4]>;
+type CTable = HashMap<(usize, usize), u8>;
 type ETable<'p> = table::Table<Vec<&'p pattern::Pattern<'p>>>;
 
 /// Wave Function Collapse.
@@ -30,17 +30,22 @@ pub struct Wfc<'p> {
 
 impl<'p> Wfc<'p> {
     pub fn new(patterns: Vec<&'p pattern::Pattern<'p>>) -> Self {
+        let ctable = Wfc::build_constraints(&patterns);
+        Wfc { patterns, ctable }
+    }
+
+    pub fn build_constraints(patterns: &Vec<&'p pattern::Pattern<'p>>) -> CTable {
         let directions = direction::Direction::all();
         let mut ctable = HashMap::default();
         for (p1, p2) in iproduct!(patterns.iter(), patterns.iter()) {
-            let mut row = [false; 4];
+            let mut row = 0u8;
             for d in directions {
-                row[usize::from(d)] = p1.overlaps(p2, &d);
+                row = row | (u8::from(p1.overlaps(p2, &d)) << u8::from(d));
             }
             ctable.insert((p1.id, p2.id), row);
         }
 
-        Wfc { patterns, ctable }
+        ctable
     }
 
     /// Implements the CSP solver.
@@ -160,7 +165,8 @@ impl<'p> WfcI<'p> {
                             // have to assume the table is populated correctly.
                             let constraints = self.ctable.get(&(possibility.id, p.id)).unwrap();
 
-                            constraints[usize::from(direction)] // Check if the constraints are satisfied.
+                            // Check if the constraints are satisfied.
+                            (constraints >> u8::from(direction) & 1) != 0
                         })
                         .collect_vec();
 
@@ -221,10 +227,10 @@ mod tests {
         let patterns = vec![p(0, 2, &texture, (0, 0)), p(1, 2, &texture, (1, 0))];
 
         let mut expected = HashMap::default();
-        expected.insert((0, 0), [false, false, false, false]);
-        expected.insert((0, 1), [false, true, true, false]);
-        expected.insert((1, 0), [true, false, false, true]);
-        expected.insert((1, 1), [false, false, false, false]);
+        expected.insert((0, 0), 0b0000);
+        expected.insert((0, 1), 0b0110);
+        expected.insert((1, 0), 0b1001);
+        expected.insert((1, 1), 0b0000);
         let actual = super::Wfc::new(patterns.iter().collect_vec()).ctable;
         assert_eq!(expected, actual);
 
@@ -241,10 +247,10 @@ mod tests {
         let patterns = vec![p(0, 3, &texture, (0, 0)), p(1, 3, &texture, (1, 0))];
 
         let mut expected = HashMap::default();
-        expected.insert((0, 0), [false, false, false, false]);
-        expected.insert((0, 1), [false, true, true, false]);
-        expected.insert((1, 0), [true, false, false, true]);
-        expected.insert((1, 1), [false, false, false, false]);
+        expected.insert((0, 0), 0b0000);
+        expected.insert((0, 1), 0b0110);
+        expected.insert((1, 0), 0b1001);
+        expected.insert((1, 1), 0b0000);
         let actual = super::Wfc::new(patterns.iter().collect_vec()).ctable;
         assert_eq!(expected, actual);
     }
