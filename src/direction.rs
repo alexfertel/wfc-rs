@@ -89,6 +89,29 @@ impl From<Direction> for usize {
     }
 }
 
+impl From<u8> for Direction {
+    fn from(value: u8) -> Self {
+        match value {
+            0 => Direction::Up,
+            1 => Direction::Right,
+            2 => Direction::Down,
+            3 => Direction::Left,
+            _ => panic!("Invalid direction"),
+        }
+    }
+}
+
+impl From<Direction> for u8 {
+    fn from(value: Direction) -> Self {
+        match value {
+            Direction::Up => 0,
+            Direction::Right => 1,
+            Direction::Down => 2,
+            Direction::Left => 3,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -133,10 +156,10 @@ mod tests {
         assert_eq!(Direction::from((1, 0)), Direction::Down);
         assert_eq!(Direction::from((0, -1)), Direction::Left);
 
-        assert_eq!(Direction::from(0), Direction::Up);
-        assert_eq!(Direction::from(1), Direction::Right);
-        assert_eq!(Direction::from(2), Direction::Down);
-        assert_eq!(Direction::from(3), Direction::Left);
+        assert_eq!(Direction::from(0u8), Direction::Up);
+        assert_eq!(Direction::from(1u8), Direction::Right);
+        assert_eq!(Direction::from(2u8), Direction::Down);
+        assert_eq!(Direction::from(3u8), Direction::Left);
 
         assert_eq!(usize::from(Direction::Up), 0);
         assert_eq!(usize::from(Direction::Right), 1);
